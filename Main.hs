@@ -15,11 +15,13 @@ data TM = TM {  states :: [String]
 			  } deriving (Show)
 			  
 elimEmpty :: [[[String]]] -> [[[String]]]
+elimEmpty [] = error "Um...NOPE!!!"
+elimEmpty ([]:xs) = xs
 elimEmpty ([[x]]:xs) = [[x]] : elimEmpty xs
 elimEmpty (([x'] : xs') : xs) = ([x'] : xs') : elimEmpty xs
 elimEmpty (((x'' : xs'') : xs') : xs) | x'' == "" = elimEmpty ((xs'':xs'):xs)  						   --first element is empty
 									  | last xs'' == "" = (((x'': (init xs'')) : xs') : elimEmpty xs)  --last element is empty
-									  | otherwise = (((x'' : xs'') : xs') : xs)
+									  | otherwise = (((x'' : xs'') : xs') : elimEmpty xs)
 									  
 									  
 
@@ -55,7 +57,7 @@ parseFile fileHandle =
 	   
 	   print goodData
 	   
-	   let lsStates = parseLines testList
+	   let lsStates = parseLines goodData
 	   
 	   --print list
 	   print lsStates
@@ -78,9 +80,19 @@ parseLines' [] states start accept reject alpha tapeAlpha transitions = TM state
 parseLines' ([]:rest) states start accept reject alpha tapeAlpha transitions = parseLines' rest states start accept reject alpha tapeAlpha transitions                 -- Empty line
 parseLines' (([]:rest'):rest) states start accept reject alpha tapeAlpha transitions = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions -- ???
 parseLines' (((e:es):rest'):rest) states start accept reject alpha tapeAlpha transitions | e == "--" = parseLines' (rest':rest)  states start accept reject alpha tapeAlpha transitions
-                                                                                         | e == "states" = parseLines' (rest':rest) es start accept reject alpha tapeAlpha transitions
-																						 | e == "start" = parseLines' (rest':rest) states (head es) accept reject alpha tapeAlpha transitions
-                                                                                         | otherwise = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions
+                                                                                         | e == "states" = parseLines' (rest':rest) (head rest') start accept reject alpha tapeAlpha transitions
+																						 | e == "start" = parseLines' (rest':rest) states (head(head rest')) accept reject alpha tapeAlpha transitions
+																						 | e == "accept" = parseLines' (rest':rest) states start (head(head rest')) reject alpha tapeAlpha transitions
+																						 | e == "reject" = parseLines' (rest':rest) states start accept (head(head rest')) alpha tapeAlpha transitions
+																						 | e == "alpha" = parseLines' (rest':rest) states start accept reject (head rest') tapeAlpha transitions
+																						 | e == "tape-alpha" = parseLines' (rest':rest) states start accept reject alpha (head rest') transitions
+																						 | e == "rwRt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e,(head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),((tail rest') !! 2 !! 0)))])
+																						 | e == "rRl" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,"",""))])
+																						 | e == "rRt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),""))])
+																						 | e == "rwLt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e,(head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),((tail rest') !! 2 !! 0)))])
+																						 | e == "rLl" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,"",""))])
+																						 | e == "rLt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),""))])
+																						 | otherwise = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions
 parseLines :: [[[String]]] -> TM
 parseLines f = parseLines' f [] "" "" "" [] [] [(("",""),("","",""))] 
                  
@@ -95,4 +107,16 @@ parseLines f = parseLines' f [] "" "" "" [] [] [(("",""),("","",""))]
 --c:\Users\Asus\Desktop\project2Test.txt
 --Empty File:
 --C:\Users\Asus\Desktop\NewTextDocument(2).txt
+
+
+
+
+
+
+
+
+
+
+
+
 
