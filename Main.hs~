@@ -1,0 +1,49 @@
+{-# OPTIONS_GHC -fno-warn-tabs #-} --eliminates Warning: Tab character
+import TMAssemblyHelper as TM
+import GHC.Generics
+import System.IO
+import Data.List
+import Data.List.Split
+
+	
+	
+main = do
+--Get file path and word to test
+	putStrLn("Enter the absolute path of your Turing Machine configuration.")
+	configPath <- getLine
+	putStrLn("What word would you like to test on the Turing Machine?")
+	testWord <- getLine
+	
+--Get file contents
+	fileHandle <- openFile configPath ReadMode
+	parseFile fileHandle
+	
+	
+--Close handle when done parsing
+	hClose fileHandle
+
+--TODO: Find a way to check if file is empty and return error
+-- to user
+parseFile :: Handle -> IO ()
+parseFile fileHandle = 
+	do fileContents <- hGetContents fileHandle
+	   let line = lines fileContents
+	   let elem = map words line
+	   let items = map (\x -> map (splitOneOf "{},:;") x)elem
+	   let states = parseStates items
+	   --print(map (\x -> map (\y -> map show y) x) items)
+		
+	   --print only one list at a time? Using putStrLn?
+	   print (states)
+	   
+parseStates :: [[[String]]] -> [String]
+parseStates [] = []
+parseStates [[[xs]]] = [parseStates[[xs]]]
+parseStates[[xs]] = [parseStates[xs]]
+parseStates[xs] = case (xs !! 1) of "states" -> xs
+
+
+									
+--C:\Users\Asus\Desktop\project2Test.txt
+--Empty File:
+--C:\Users\Asus\Desktop\NewTextDocument(2).txt
