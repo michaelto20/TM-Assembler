@@ -60,21 +60,53 @@ listAlpha (TM _ _ _ _ alpha _ _) = alpha
 
 --Tape-Alpha
 listTapeAlpha :: TM -> [String]
-listTapeAlpha (TM _ _ _ _ _ tapeAlpha _) = tapeAlpha
+listTapeAlpha (TM _ _ _ _ _ tapeAlpha _) = tapeAlpha 
 
 --Transitions
 listTransitions :: TM -> [((String, String), (String, String, String))]
 listTransitions (TM _ _ _ _ _ _ transitions) = transitions
 
+getTrans :: ((String, String), (String, String, String)) -> String
+getTrans ((a, _), (_, _, _)) = a
+
+getTransAlpha :: ((String, String), (String, String, String)) -> [String]
+getTransAlpha ((_, _ ), (a, b, _)) = [a,b]
+
+getTransStates :: ((String, String), (String, String, String)) -> [String]
+getTransStates ((_, a), (_, _, b)) = [a,b]
+
 -----------------------------
 
+-----------------------------------
 --Verify input validity
+-----------------------------------
+--verify String data types
 verifyTMStrings :: String -> [String] -> Bool
 verifyTMStrings start states= start `elem` states
 
+-- verify list data types
 verifyTMLists :: [String] -> [String] -> Bool
-verifyTMLists alpha tapeAlpha = undefined --isInfixOf
+verifyTMLists alpha tapeAlpha = do
+	let boolList = map (\x -> x `elem` tapeAlpha) alpha
+	False `notElem` boolList
 
+--verify transitions
+verifyTrans :: [String] -> [String] -> [((String, String),(String, String, String))] -> IO ()
+verifyTrans transCons states trans = do
+	--accumulate transitions
+	let transList = map getTrans trans
+	let boolList = map (\x -> x `elem` transCons) transList
+	let transAlpha = map getTransAlpha trans
+	let transAlpha' = concat transAlpha
+	let transStates = map getTransStates trans
+	let transStates' = concat transStates
+	print transAlpha
+	print transAlpha'
+	print transStates
+	print transStates'
+	--False `notElem` boolList
+	--undefined
+-----------------------------------
 
 	
 main = do
@@ -103,7 +135,7 @@ parseFile fileHandle =
 	   --Delete empty strings in fileItems
 	   let scrubbedData = elimEmpty fileItems
 	   
-	   --Rarse data and put into TM record
+	   --Parse data and put into TM record
 	   let parsedData = parseLines scrubbedData
 	   
 	   --Get elements of TM
@@ -121,17 +153,21 @@ parseFile fileHandle =
 	   let verifStart = verifyTMStrings sStart lsStates
 	   let verifAccept = verifyTMStrings sAccept lsStates
 	   let verifReject = verifyTMStrings sReject lsStates
+	   let verifAlpha = verifyTMLists lsAlpha lsTapeAlpha
 	   
-	   
-	   
+	   --Constants for transitions
+	   let transConstants = ["rwRt","rwLt","rRl","rLl","rRt","rLt"]
+
+	   verifyTrans transConstants lsStates lsTransitions
 	   --print list
-	   print lsStates
-	   print sStart
-	   print sAccept
-	   print sReject
-	   print lsAlpha
-	   print lsTapeAlpha
-	   print lsTransitions
+	   -- print lsStates
+	   -- print sStart
+	   -- print sAccept
+	   -- print sReject
+	   -- print lsAlpha
+	   -- print lsTapeAlpha
+	   -- print lsTransitions
+	   print (verifyTMLists lsAlpha lsTapeAlpha)
 	   
 
 	   
@@ -159,11 +195,11 @@ parseLines' (((e:es):rest'):rest) states start accept reject alpha tapeAlpha tra
 											 | e == "alpha" = parseLines' (rest':rest) states start accept reject (head rest') tapeAlpha transitions
 											 | e == "tape-alpha" = parseLines' (rest':rest) states start accept reject alpha (head rest') transitions
 											 | e == "rwRt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e,(head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),((tail rest') !! 2 !! 0)))])
-											 | e == "rRl" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,"",""))])
-											 | e == "rRt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),""))])
+											 | e == "rRl" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,tail rest' !! 0 !! 0,(head rest' !! 0)))])
+											 | e == "rRt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),(tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0)))])
 											 | e == "rwLt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e,(head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),((tail rest') !! 2 !! 0)))])
-											 | e == "rLl" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,"",""))])
-											 | e == "rLt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),""))])
+											 | e == "rLl" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,tail rest' !! 0 !! 0,(head rest' !! 0)))])
+											 | e == "rLt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),(tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0)))])
 											 | otherwise = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions    --throw an error on this line???
 parseLines :: [[[String]]] -> TM
 parseLines f = parseLines' f [] "" "" "" [] [] [] 
