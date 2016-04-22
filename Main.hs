@@ -91,19 +91,28 @@ verifyTMLists alpha tapeAlpha = do
 	False `notElem` boolList
 
 --verify transitions
-verifyTrans :: [String] -> [String] -> [((String, String),(String, String, String))] -> IO ()
-verifyTrans transCons states trans = do
-	--accumulate transitions
+verifyTrans :: [String] -> [String] -> [String] -> [((String, String),(String, String, String))] -> Bool
+verifyTrans transCons tapeAlphabet states trans = do
+	--accumulate and verify transitions
 	let transList = map getTrans trans
 	let boolList = map (\x -> x `elem` transCons) transList
+	let transFlag = False `notElem` boolList
+	--accumulate and verify transition alphabet
 	let transAlpha = map getTransAlpha trans
 	let transAlpha' = concat transAlpha
+	let transAlphaBool = map (\x -> x `elem` tapeAlphabet) transAlpha'
+	let transAlphaFlag = False `notElem` transAlphaBool
+	--accumulate and verify transition states
 	let transStates = map getTransStates trans
 	let transStates' = concat transStates
-	print transAlpha
-	print transAlpha'
-	print transStates
-	print transStates'
+	let transStatesBool = map (\x -> x `elem` states) transStates'
+	let transStatesFlag = False `notElem` transStatesBool
+	
+	transStatesFlag && transAlphaFlag && transFlag
+	-- print transAlpha
+	-- print transAlpha'
+	-- print transStates
+	-- print transStates'
 	--False `notElem` boolList
 	--undefined
 -----------------------------------
@@ -158,7 +167,11 @@ parseFile fileHandle =
 	   --Constants for transitions
 	   let transConstants = ["rwRt","rwLt","rRl","rLl","rRt","rLt"]
 
-	   verifyTrans transConstants lsStates lsTransitions
+	   not $ verifyTrans transConstants lsTapeAlpha lsStates lsTransitions
+			| True = error "Not so fast cowboy"
+				
+		print "Whats up"
+			
 	   --print list
 	   -- print lsStates
 	   -- print sStart
@@ -167,7 +180,7 @@ parseFile fileHandle =
 	   -- print lsAlpha
 	   -- print lsTapeAlpha
 	   -- print lsTransitions
-	   print (verifyTMLists lsAlpha lsTapeAlpha)
+	   --print (verifyTMLists lsAlpha lsTapeAlpha)
 	   
 
 	   
@@ -193,7 +206,7 @@ parseLines' (((e:es):rest'):rest) states start accept reject alpha tapeAlpha tra
 											 | e == "accept" = parseLines' (rest':rest) states start (head(head rest')) reject alpha tapeAlpha transitions
 											 | e == "reject" = parseLines' (rest':rest) states start accept (head(head rest')) alpha tapeAlpha transitions
 											 | e == "alpha" = parseLines' (rest':rest) states start accept reject (head rest') tapeAlpha transitions
-											 | e == "tape-alpha" = parseLines' (rest':rest) states start accept reject alpha (head rest') transitions
+											 | e == "tape-alpha" = parseLines' (rest':rest) states start accept reject alpha (tapeAlpha++(head rest')) transitions
 											 | e == "rwRt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e,(head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),((tail rest') !! 2 !! 0)))])
 											 | e == "rRl" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,tail rest' !! 0 !! 0,(head rest' !! 0)))])
 											 | e == "rRt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),(tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0)))])
@@ -201,8 +214,14 @@ parseLines' (((e:es):rest'):rest) states start accept reject alpha tapeAlpha tra
 											 | e == "rLl" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,tail rest' !! 0 !! 0,(head rest' !! 0)))])
 											 | e == "rLt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),(tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0)))])
 											 | otherwise = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions    --throw an error on this line???
+
+--TODO: Potential issue my code doesn't catch when the transition name is one of the 6 defined types (rLl, etc)
+--it just passes over it
+--TODO: Code doesn't catch the error where the file may have extra data after a transition
+--the code ignores it, should it reject such a file (example: rwLt Q4 1 x Q5 9)?
+											 
 parseLines :: [[[String]]] -> TM
-parseLines f = parseLines' f [] "" "" "" [] [] [] 
+parseLines f = parseLines' f [] "" "" "" [] ["_"] [] 
                
 -- parseStates :: [[[String]]] -> [String]
 -- parseStates [] = []
