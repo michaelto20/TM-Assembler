@@ -117,6 +117,17 @@ verifyTrans transCons tapeAlphabet states trans = do
 	--undefined
 -----------------------------------
 
+runError :: Bool -> IO ()
+runError a = error "Slow down cowboy, you're riding your horse backwards!"
+
+runTM :: TM -> String ->  IO ()
+runTM m word = do
+	map (\x -> transitionFnc x (map word)) m
+	print "hello"
+
+
+transitionFnc :: [String] -> Char -> [String]
+transitionFnc transition input = undefined
 	
 main = do
 --Get file path and word to test
@@ -127,15 +138,15 @@ main = do
 	
 --Get file contents
 	fileHandle <- openFile configPath ReadMode
-	parseFile fileHandle
+	parseFile fileHandle testWord
 	
 --Close handle when done parsing
 	hClose fileHandle
 
 --TODO: Find a way to check if file is empty and return error
 -- to user
-parseFile :: Handle -> IO ()
-parseFile fileHandle = 
+parseFile :: Handle -> String -> IO ()
+parseFile fileHandle testWord = 
 	do fileContents <- hGetContents fileHandle
 	   let fileLine = lines fileContents
 	   let fileWords = map words fileLine
@@ -167,20 +178,12 @@ parseFile fileHandle =
 	   --Constants for transitions
 	   let transConstants = ["rwRt","rwLt","rRl","rLl","rRt","rLt"]
 
-	   not $ verifyTrans transConstants lsTapeAlpha lsStates lsTransitions
-			| True = error "Not so fast cowboy"
-				
-		print "Whats up"
+	   let transBool = (verifyTrans transConstants lsTapeAlpha lsStates lsTransitions)
+	   if(transBool)
+			then runTM parsedData testWord
+			else runError transBool
 			
-	   --print list
-	   -- print lsStates
-	   -- print sStart
-	   -- print sAccept
-	   -- print sReject
-	   -- print lsAlpha
-	   -- print lsTapeAlpha
-	   -- print lsTransitions
-	   --print (verifyTMLists lsAlpha lsTapeAlpha)
+	   
 	   
 
 	   
@@ -219,6 +222,7 @@ parseLines' (((e:es):rest'):rest) states start accept reject alpha tapeAlpha tra
 --it just passes over it
 --TODO: Code doesn't catch the error where the file may have extra data after a transition
 --the code ignores it, should it reject such a file (example: rwLt Q4 1 x Q5 9)?
+--TODO: Get rid of empty lines in input file
 											 
 parseLines :: [[[String]]] -> TM
 parseLines f = parseLines' f [] "" "" "" [] ["_"] [] 
