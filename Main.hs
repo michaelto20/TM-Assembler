@@ -120,14 +120,123 @@ verifyTrans transCons tapeAlphabet states trans = do
 runError :: Bool -> IO ()
 runError a = error "Slow down cowboy, you're riding your horse backwards!"
 
-runTM :: TM -> String ->  IO ()
-runTM m word = do
-	map (\x -> transitionFnc x (map word)) m
-	print "hello"
+runTM' ::  ((String, String), (String, String, String)) -> String -> String -> String -> String -> Int ->   String
+runTM' trans currentState accept reject word position = do
+	let currentTrans =  trans
+	let retVal = readWrite currentTrans currentState accept reject word position
+	--decompose retVal to make recursive call with new values	
+	let newWord = getReturnedWord retVal
+	let nextState = getReturnedState retVal
+	let newPosition = getReturnedPosition retVal
+	getReturnedState retVal
+	
+
+runTM ::  [((String, String), (String, String, String))] -> String -> String -> String -> String -> Int ->   [Char]
+runTM [] currentState accept reject word position = []
+runTM trans currentState accept reject word position = do
+	let currentTrans = nextTrans trans
+	let retVal = readWrite currentTrans currentState accept reject word position
+	--decompose retVal to make recursive call with new values	
+	let newWord = getReturnedWord retVal
+	let nextState = getReturnedState retVal
+	let newPosition = getReturnedPosition retVal
+	
+	
+	-- --retVal:(runTM (tail trans) nextState accept reject newWord newPosition)
+	-- if(newPosition == position)
+		-- then word: (runTM (tail trans) currentState accept reject word position)  --Didn't move position
+		-- else if (currentState == nextState)
+			-- then newWord:(runTM trans nextState accept reject newWord newPosition)   --Loop on same transition
+			-- else newWord : (runTM (tail trans) nextState accept reject newWord newPosition)  --Move to next transition
+	word ++ (runTM' (trans !! 1) currentState accept reject newWord newPosition) ++ (runTM' (trans !! 2) nextState accept reject newWord newPosition)
+
+rejectWord:: String -> [String]
+rejectWord word = do
+	let otherWord = ["The word was rejected"]
+	word:otherWord
+	
+
+getReturnedState :: [(Int, String, String)] -> String
+getReturnedState [(_,_, word)] = word
+
+	
+getReturnedWord :: [(Int, String, String)] -> String
+getReturnedWord [(_,word, _)] = word
+
+getReturnedPosition :: [(Int, String, String)] -> Int
+getReturnedPosition [(num,_, _)] = num
+	
+--determine what is read off the tape and written on it	
+readWrite :: ((String, String), (String, String, String))-> String -> String -> String -> String -> Int -> [(Int, String, String)]
+readWrite currentTrans currentState accept reject word position = do
+	let stateCheck = checkTransState currentTrans currentState
+	let inputCheck = checkTapeInput currentTrans word position
+	let newPosition = positionChange currentTrans
+	if(stateCheck && inputCheck)
+		then [(newPosition,(getNewWord word position (getInput currentTrans)), getNextState currentTrans)] --return position change, new modified word and next state
+		else [(position, word, currentState)]   --Try the next transition 
+		
+
+positionChange :: ((String, String), (String, String, String)) -> Int
+positionChange (("rwRt", _),(_,_,_)) = 1
+positionChange (("rwLt", _),(_,_,_)) = -1
+positionChange (("rRl", _),(_,_,_)) = 1
+positionChange (("rLl", _),(_,_,_)) = -1
+positionChange (("rRt", _),(_,_,_)) = 1
+positionChange (("rLt", _),(_,_,_)) = -1
+		
+
+getInput :: ((String, String), (String, String, String)) -> String
+getInput ((_,_),(_,input,_)) = input
+
+getInput' :: ((String, String), (String, String, String)) -> String
+getInput' ((_,_),(input,_,_)) = input
+		
+		
+getNextState :: ((String, String), (String, String, String)) -> String
+getNextState ((_,_),(_,_,nextState)) = nextState
+
+getNextState' :: ((String, String), (String, String, String)) -> String
+getNextState' ((_,state),(_,_,_)) = state
+
+		
+		
+getNewWord :: String -> Int -> String -> String
+getNewWord word position write = do
+	let (prefix, rest) = splitAt position word
+	if(position == 0)
+		then write ++ tail rest
+		else(init prefix) ++ write ++ rest
+	
+	
+convertToString :: Char -> String
+convertToString a = [a]
+	
+
+
+checkTapeInput :: ((String, String), (String, String, String)) -> String -> Int -> Bool
+checkTapeInput trans word position = if ((getInput' trans) == (convertToString(word !! position)))
+										then True
+										else False
+
+
+checkTransState	::((String, String), (String, String, String)) -> String -> Bool
+checkTransState trans state = if((getNextState' trans) == state)
+								then True
+								else False
+	
+	
+nextTrans :: [((String, String), (String, String, String))] -> ((String, String), (String, String, String))
+nextTrans transitions = head transitions  --make sure list is non-empty
+
+	
+runTrans :: ((String, String), (String, String, String)) -> String -> String -> String -> String -> String
+runTrans singleTransition start accept reject word = undefined
 
 
 transitionFnc :: [String] -> Char -> [String]
 transitionFnc transition input = undefined
+
 	
 main = do
 --Get file path and word to test
@@ -180,11 +289,8 @@ parseFile fileHandle testWord =
 
 	   let transBool = (verifyTrans transConstants lsTapeAlpha lsStates lsTransitions)
 	   if(transBool)
-			then runTM parsedData testWord
+			then print (runTM lsTransitions sStart sAccept sReject testWord 0)
 			else runError transBool
-			
-	   
-	   
 
 	   
 testFile :: [[String]] -> IO ()
