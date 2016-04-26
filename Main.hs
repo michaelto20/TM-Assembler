@@ -146,43 +146,31 @@ findTrue :: [Bool] -> Int -> Int
 findTrue boolList position = do
 	if((boolList !! position) == True)
 		then position
-		else findTrue boolList (position+1)
+		else if(position > length boolList)
+			then error "Past the bounds of boolList"  --TODO: Want to throw error here...use "Maybe"
+			else findTrue boolList (position+1)
 		
 getTransition :: Int -> [((String, String), (String, String, String))] -> ((String, String), (String, String, String))
 getTransition position trans = trans !! position
 	
 
 runTM ::  [((String, String), (String, String, String))] -> String -> String -> String -> String -> Int ->   [String]
-runTM [] currentState accept reject word position = []
 runTM trans currentState accept reject word position = do
 	if(accept == currentState)
 		then []
 		else if (reject == currentState)
-			then []  --TODO: Fix this to return that the word was rejected
-			else do
-				let nextInputState = findTransition trans currentState word position
-				let goodBool = findTrue nextInputState 0  							--Find True, indicates which transition to use
-				let goodTransition = getTransition goodBool trans  					--pull out needed transition from list
-				let newWord = getNewWord word position (getInput goodTransition) 
-				let newPosition = positionChange goodTransition
-				word:runTM trans (getNextState goodTransition) accept reject  newWord newPosition
-	--let nextInputAndState = ((getType goodTransition) : (getInput goodTransition) : (getNextState goodTransition) : [])
-	
-	--print nextInputAndState
-	-- let currentTrans = nextTrans trans
-	-- let retVal = readWrite currentTrans currentState accept reject word position
-	-- --decompose retVal to make recursive call with new values	
-	-- let newWord = getReturnedWord retVal
-	-- let nextState = getReturnedState retVal
-	-- let newPosition = position + (getReturnedPosition retVal)
+			then (word:reject:[])  --TODO: Fix this to return that the word was rejected
+			else if(position < 5)
+				then do
+					let nextInputState = findTransition trans currentState word position
+					let goodBool = findTrue nextInputState 0  							--Find True, indicates which transition to use
+					let goodTransition = getTransition goodBool trans  					--pull out needed transition from list
+					let newWord = getNewWord word position (getInput goodTransition) 
+					let newPosition = position + (positionChange goodTransition)
+					word:runTM trans (getNextState goodTransition) accept reject  newWord newPosition
+				else error "position past 2"
 	
 	
-	-- if(newPosition == position)
-		-- then (runTM (tail trans) currentState accept reject word position)  --Didn't move position
-		-- else if (currentState == nextState)
-			-- then newWord:(runTM trans nextState accept reject word newPosition)   --Loop on same transition
-			-- else newWord : (runTM (tail trans) nextState accept reject newWord newPosition)  --Move to next transition
-
 rejectWord:: String -> [String]
 rejectWord word = do
 	let otherWord = ["The word was rejected"]
@@ -198,17 +186,7 @@ getReturnedWord [(_,word, _)] = word
 
 getReturnedPosition :: [(Int, String, String)] -> Int
 getReturnedPosition [(num,_, _)] = num
-	
---determine what is read off the tape and written on it	
--- readWrite :: ((String, String), (String, String, String))-> String -> String -> String -> String -> Int -> [(Int, String, String)]
--- readWrite currentTrans currentState accept reject word position = do
-	-- let stateCheck = checkTransState currentTrans currentState
-	-- let inputCheck = checkTapeInput currentTrans word position
-	-- let newPosition = positionChange currentTrans
-	-- if(stateCheck && inputCheck)
-		-- then [(newPosition,(getNewWord word position (getInput currentTrans)), getNextState currentTrans)] --return position change, new modified word and next state
-		-- else [(position, word, currentState)]   --Try the next transition 
-		
+			
 
 positionChange :: ((String, String), (String, String, String)) -> Int
 positionChange (("rwRt", _),(_,_,_)) = 1
@@ -242,10 +220,7 @@ getNewWord :: String -> Int -> String -> String
 getNewWord word position write = do
 	let (prefix, rest) = splitAt position word
 	if(position == 0)
-		then 
-			if((length (tail rest)) > 0)
-			then write ++ tail rest
-			else prefix ++ write
+		then write ++ tail rest
 		else(init prefix) ++ write ++ rest
 	
 	
