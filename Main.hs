@@ -139,7 +139,9 @@ getInputState ((a,_),(_,b,c)) = [(a,b,c)]
 findTransition' :: ((String, String), (String, String, String)) -> String -> Char -> Bool
 findTransition' transition state letter = do
 	if((getNextState' transition) == state)
-		then True
+		then if((getInput' transition) == (convertToString letter))
+			then True
+			else False
 		else False
 	
 findTrue :: [Bool] -> Int -> Int
@@ -147,7 +149,7 @@ findTrue boolList position = do
 	if((boolList !! position) == True)
 		then position
 		else if(position > length boolList)
-			then error "Past the bounds of boolList"  --TODO: Want to throw error here...use "Maybe"
+			then error "Past the bounds of boolList"  --TODO: Return reject state
 			else findTrue boolList (position+1)
 		
 getTransition :: Int -> [((String, String), (String, String, String))] -> ((String, String), (String, String, String))
@@ -159,16 +161,17 @@ runTM trans currentState accept reject word position = do
 	if(accept == currentState)
 		then []
 		else if (reject == currentState)
-			then (word:reject:[])  --TODO: Fix this to return that the word was rejected
-			else if(position < 5)
+			then (word:reject:[])					--TODO: Fix this to return that the word was rejected
+			else if(position < 10)
 				then do
 					let nextInputState = findTransition trans currentState word position
 					let goodBool = findTrue nextInputState 0  							--Find True, indicates which transition to use
 					let goodTransition = getTransition goodBool trans  					--pull out needed transition from list
 					let newWord = getNewWord word position (getInput goodTransition) 
 					let newPosition = position + (positionChange goodTransition)
-					word:runTM trans (getNextState goodTransition) accept reject  newWord newPosition
-				else error "position past 2"
+					let transType = getType goodTransition
+					currentState:runTM trans (getNextState goodTransition) accept reject  newWord newPosition
+				else error "position past 10"
 	
 	
 rejectWord:: String -> [String]
@@ -186,15 +189,17 @@ getReturnedWord [(_,word, _)] = word
 
 getReturnedPosition :: [(Int, String, String)] -> Int
 getReturnedPosition [(num,_, _)] = num
+
+
 			
 
 positionChange :: ((String, String), (String, String, String)) -> Int
 positionChange (("rwRt", _),(_,_,_)) = 1
-positionChange (("rwLt", _),(_,_,_)) = -1
+positionChange (("rwLt", _),(_,_,_)) = (-1)
 positionChange (("rRl", _),(_,_,_)) = 1
-positionChange (("rLl", _),(_,_,_)) = -1
+positionChange (("rLl", _),(_,_,_)) = (-1)
 positionChange (("rRt", _),(_,_,_)) = 1
-positionChange (("rLt", _),(_,_,_)) = -1
+positionChange (("rLt", _),(_,_,_)) = (-1)
 		
 
 getInput :: ((String, String), (String, String, String)) -> String
