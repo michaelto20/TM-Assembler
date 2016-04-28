@@ -138,7 +138,7 @@ getInputState ((a,_),(_,b,c)) = [(a,b,c)]
 
 findTransition' :: ((String, String), (String, String, String)) -> String -> Char -> Bool
 findTransition' transition state letter = do
-	if((getNextState' transition) == state)
+	if((getCurrentState transition) == state)
 		then if((getInput' transition) == (convertToString letter))
 			then True
 			else False
@@ -159,20 +159,18 @@ getTransition position trans = trans !! position
 runTM ::  [((String, String), (String, String, String))] -> String -> String -> String -> String -> Int ->   [String]
 runTM trans currentState accept reject word position = do
 	if(accept == currentState)
-		then []
+		then word:accept:[]
 		else if (reject == currentState)
-			then (word:reject:[])					--TODO: Fix this to return that the word was rejected
-			else if(position < 10)
-				then do
+			then (word:reject:[])			--TODO: Fix this to return that the word was rejected
+			else do
 					let nextInputState = findTransition trans currentState word position
 					let goodBool = findTrue nextInputState 0  							--Find True, indicates which transition to use
 					let goodTransition = getTransition goodBool trans  					--pull out needed transition from list
 					let newWord = getNewWord word position (getInput goodTransition) 
 					let newPosition = position + (positionChange goodTransition)
 					let transType = getType goodTransition
-					currentState:runTM trans (getNextState goodTransition) accept reject  newWord newPosition
-				else error "position past 10"
-	
+					word:runTM trans (getNextState goodTransition) accept reject  newWord newPosition
+				
 	
 rejectWord:: String -> [String]
 rejectWord word = do
@@ -212,8 +210,8 @@ getInput' ((_,_),(input,_,_)) = input
 getNextState :: ((String, String), (String, String, String)) -> String
 getNextState ((_,_),(_,_,nextState)) = nextState
 
-getNextState' :: ((String, String), (String, String, String)) -> String
-getNextState' ((_,state),(_,_,_)) = state
+getCurrentState :: ((String, String), (String, String, String)) -> String
+getCurrentState ((_,state),(_,_,_)) = state
 
 getType :: ((String, String), (String, String, String)) -> String
 getType ((transType, _), (_, _, _)) = transType
@@ -226,7 +224,7 @@ getNewWord word position write = do
 	let (prefix, rest) = splitAt position word
 	if(position == 0)
 		then write ++ tail rest
-		else(init prefix) ++ write ++ rest
+		else prefix ++ write ++ (tail rest)
 	
 	
 convertToString :: Char -> String
@@ -241,7 +239,7 @@ checkTapeInput trans word position = if ((getInput' trans) == (convertToString(w
 
 
 checkTransState	::((String, String), (String, String, String)) -> String -> Bool
-checkTransState trans state = if((getNextState' trans) == state)
+checkTransState trans state = if((getCurrentState trans) == state)
 								then True
 								else False
 	
