@@ -131,7 +131,17 @@ runError a = error "Slow down cowboy, you're riding your horse backwards!"
 	-- getReturnedState retVal
 	
 findTransition :: [((String, String), (String, String, String))] -> String -> String -> Int -> [Bool]
-findTransition trans currentState word position = map (\x -> findTransition' x currentState (word !! position)) trans
+findTransition trans currentState word position = do
+	let letter = getChar' position word
+	map (\x -> findTransition' x currentState letter) trans
+	
+	
+getChar' :: Int -> String -> Char
+getChar' position word = do
+	if(position >= length word)
+		then error "Err..Something went wrong, go ahead and take five!"
+		else (word !! position)
+
 
 getInputState :: ((String, String), (String, String, String)) -> [(String, String, String)]
 getInputState ((a,_),(_,b,c)) = [(a,b,c)]
@@ -158,19 +168,28 @@ getTransition position trans = trans !! position
 
 runTM ::  [((String, String), (String, String, String))] -> String -> String -> String -> String -> Int ->   [String]
 runTM trans currentState accept reject word position = do
+	let nextInputState = findTransition trans currentState word position
+	let goodBool = findTrue nextInputState 0  							--Find True, indicates which transition to use
+	let goodTransition = getTransition goodBool trans  					--pull out needed transition from list
+					
 	if(accept == currentState)
-		then word:accept:[]
+		then ("Accept: " ++ getWordState word position accept):[]
 		else if (reject == currentState)
 			then (word:reject:[])			--TODO: Fix this to return that the word was rejected
 			else do
-					let nextInputState = findTransition trans currentState word position
-					let goodBool = findTrue nextInputState 0  							--Find True, indicates which transition to use
-					let goodTransition = getTransition goodBool trans  					--pull out needed transition from list
 					let newWord = getNewWord word position (getInput goodTransition) 
 					let newPosition = position + (positionChange goodTransition)
 					let transType = getType goodTransition
-					word:runTM trans (getNextState goodTransition) accept reject  newWord newPosition
+					let wordAndState = getWordState word position currentState
+					wordAndState:runTM trans (getNextState goodTransition) accept reject  newWord newPosition
 				
+getWordState :: String -> Int -> String -> String
+getWordState word position currentState = do
+	let (prefix, rest) = splitAt position word
+	if(position == 0)
+		then "[" ++ currentState ++ "]" ++ rest
+		else prefix ++ "[" ++ currentState ++ "]" ++ rest
+	
 	
 rejectWord:: String -> [String]
 rejectWord word = do
@@ -300,7 +319,7 @@ parseFile fileHandle testWord =
 
 	   let transBool = (verifyTrans transConstants lsTapeAlpha lsStates lsTransitions)
 	   if(transBool)
-			then print (runTM lsTransitions sStart sAccept sReject testWord 0)
+			then  mapM_  print (runTM lsTransitions sStart sAccept sReject (testWord ++ "_") 0)
 			else runError transBool
 
 	   
