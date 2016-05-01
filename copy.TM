@@ -13,6 +13,7 @@ rRl Q1 0;                     -- Read, Right, Loop.
 rRl Q1 1; 
 rRt Q1 # Q3;                  -- Read, Right, transition.
 rRl Q3 x;
+
 rwLt Q3 0 x Q5;               -- Read, Write, Left, Transition.
 
 --   1:
