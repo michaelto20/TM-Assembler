@@ -5,6 +5,7 @@ import System.IO
 import Data.List
 import Data.List.Split
 import Prelude hiding (catch)
+import System.Directory
 
 data TM = TM {  states :: [String]
 			  , start :: String
@@ -89,15 +90,18 @@ verifyTMLists alpha tapeAlpha = do
 --verify transitions
 verifyTrans :: [String] -> [String] -> [String] -> [((String, String),(String, String, String))] -> Bool
 verifyTrans transCons tapeAlphabet states trans = do
+
 	--accumulate and verify transitions
 	let transList = map getTrans trans
 	let boolList = map (\x -> x `elem` transCons) transList
 	let transFlag = False `notElem` boolList
+	
 	--accumulate and verify transition alphabet
 	let transAlpha = map getTransAlpha trans
 	let transAlpha' = concat transAlpha
 	let transAlphaBool = map (\x -> x `elem` tapeAlphabet) transAlpha'
 	let transAlphaFlag = False `notElem` transAlphaBool
+	
 	--accumulate and verify transition states
 	let transStates = map getTransStates trans
 	let transStates' = concat transStates
@@ -105,13 +109,9 @@ verifyTrans transCons tapeAlphabet states trans = do
 	let transStatesFlag = False `notElem` transStatesBool
 	
 	transStatesFlag && transAlphaFlag && transFlag
-	-- print transAlpha
-	-- print transAlpha'
-	-- print transStates
-	-- print transStates'
-	--False `notElem` boolList
-	--undefined
------------------------------------
+
+--End Verify Input Region
+----------------------------------------------------------
 
 runError :: Bool -> IO ()
 runError a = error "Slow down cowboy, you're riding your horse backwards!"
@@ -127,7 +127,9 @@ getChar' :: Int -> String -> Char
 getChar' position word = do
 	if(position > length word)
 		then error "Err..Something went wrong, go ahead and take five!"
-		else (word !! position)
+		else if(length word == position)
+			then word !! (position -1)
+			else (word !! position)
 
 
 getInputState :: ((String, String), (String, String, String)) -> [(String, String, String)]
@@ -141,28 +143,28 @@ findTransition' transition state letter = do
 			else False
 		else False
 	
-findTrue :: [Bool] -> Int -> Int
-findTrue boolList position = do
+findTrue :: [Bool] -> Int -> String -> Int -> String -> Int
+findTrue boolList position word wordPosition currentState = do
 	if(position >= length boolList)
-		then error "The word is rejected"
+		then error ("Rejected: " ++(getWordState word wordPosition currentState ""))
 		else do
 			if((boolList !! position) == True)
 				then position
-				else findTrue boolList (position+1) --TODO: Return reject state
+				else findTrue boolList (position+1) word wordPosition currentState
 					
 		
-getTransition :: Int -> [((String, String), (String, String, String))] -> ((String, String), (String, String, String))
-getTransition position trans = do
+getTransition :: Int -> String -> Int -> String -> [((String, String), (String, String, String))] -> ((String, String), (String, String, String))
+getTransition position word wordPosition currentState trans = do
 	if(position >= length trans)
-		then error "The word is rejected"
+		then error ("Rejected: " ++ (getWordState word wordPosition currentState ""))
 		else trans !! position
 	
 
 runTM ::  [((String, String), (String, String, String))] -> String -> String -> String -> String -> Int ->   [String]
 runTM trans currentState accept reject word position = do
 	let nextInputState = findTransition trans currentState word position
-	let goodBool = findTrue nextInputState 0  							--Find True, indicates which transition to use
-	let goodTransition = getTransition goodBool trans  					--pull out needed transition from list
+	let goodBool = findTrue nextInputState 0 word position currentState  							--Find True, indicates which transition to use
+	let goodTransition = getTransition goodBool word position currentState trans  					--pull out needed transition from list
 					
 	if(accept == currentState)
 		then ("Accept: " ++ getScrubbedWord (getWordState word position accept reject)):[]
@@ -194,7 +196,7 @@ getWordState word position currentState reject= do
 	
 rejectWord:: String -> [String]
 rejectWord word = do
-	let otherWord = ["The word was rejected"]
+	let otherWord = ["The word was rejected!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"]
 	word:otherWord
 	
 
@@ -242,13 +244,15 @@ getType ((transType, _), (_, _, _)) = transType
 		
 getNewWord :: String -> Int -> String -> String
 getNewWord word position write = do
-	if(position >= length word)
+	if(position > length word)
 		then error "The word is rejected"
 		else do
 			let (prefix, rest) = splitAt position word
 			if(position == 0)
 				then write ++ tail rest
-				else prefix ++ write ++ (tail rest)
+				else if(length rest == 0)
+						then prefix ++ write
+						else prefix ++ write ++ (tail rest)
 	
 	
 convertToString :: Char -> String
@@ -288,12 +292,16 @@ main = do
 	testWord <- getLine
 	
 --Get file contents
-	fileHandle <- openFile configPath ReadMode
-	parseFile fileHandle testWord
-
+	isFileThere <- doesFileExist configPath
+	if(isFileThere)
+		then do 
+			fileHandle <- openFile configPath ReadMode
+			parseFile fileHandle testWord
+			--Close handle when done parsing
+			hClose fileHandle
+		else error "No such file path exists.  Please try a different path."
+		
 	
---Close handle when done parsing
-	hClose fileHandle
 	
 --end Main
 ---------------------------------------------------------
@@ -303,6 +311,7 @@ main = do
 ------------------------------------------------------------
 --TODO: Find a way to check if file is empty and return error
 -- to user
+
 parseFile :: Handle -> String -> IO ()
 parseFile fileHandle testWord = 
 	do fileContents <- hGetContents fileHandle
@@ -315,7 +324,7 @@ parseFile fileHandle testWord =
 	   let scrubbedData = elimEmpty fileItems
 	   --let scrubbedNumOfItems' = elimEmpty verifyNumOfItems
 	   
-	   print verifyNumOfItems
+	   --print verifyNumOfItems
 	   
 	   --Parse data and put into TM record
 	   let parsedData = parseLines scrubbedData
@@ -339,13 +348,15 @@ parseFile fileHandle testWord =
 	   
 	   --Constants for transitions
 	   let transConstants = ["rwRt","rwLt","rRl","rLl","rRt","rLt"]
-
 	   let transBool = (verifyTrans transConstants lsTapeAlpha lsStates lsTransitions)
-	   if(transBool)
+	   
+	   --Data is verified, now run TM on word
+	   if(transBool && verifStart && verifAccept && verifAlpha && verifReject)
 			then  mapM_  print (runTM lsTransitions sStart sAccept sReject (testWord ++ "_") 0)
 			else runError transBool
 			
-
+			
+		
 	   
 testFile :: [[String]] -> IO ()
 testFile testList2 = mapM_ (mapM_ print) testList2
@@ -361,12 +372,12 @@ parseLines' [] states start accept reject alpha tapeAlpha transitions = TM state
 parseLines' ([]:rest) states start accept reject alpha tapeAlpha transitions = parseLines' rest states start accept reject alpha tapeAlpha transitions                 		-- Empty line
 parseLines' (([]:rest'):rest) states start accept reject alpha tapeAlpha transitions = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions 
 parseLines' (((e:es):rest'):rest) states start accept reject alpha tapeAlpha transitions | e == "--" = parseLines' (rest':rest)  states start accept reject alpha tapeAlpha transitions
-                                                                                         | e == "states" = parseLines' (rest':rest) (head rest') start accept reject alpha tapeAlpha transitions
+                                                                                         | e == "states" = parseLines' (rest) (head rest') start accept reject alpha tapeAlpha transitions
 											 | e == "start" = parseLines' (rest':rest) states (head(head rest')) accept reject alpha tapeAlpha transitions
 											 | e == "accept" = parseLines' (rest':rest) states start (head(head rest')) reject alpha tapeAlpha transitions
 											 | e == "reject" = parseLines' (rest':rest) states start accept (head(head rest')) alpha tapeAlpha transitions
-											 | e == "alpha" = parseLines' (rest':rest) states start accept reject (head rest') tapeAlpha transitions
-											 | e == "tape-alpha" = parseLines' (rest':rest) states start accept reject alpha (tapeAlpha++(head rest')) transitions
+											 | e == "alpha" = parseLines' (rest) states start accept reject (head rest') tapeAlpha transitions
+											 | e == "tape-alpha" = parseLines' (rest) states start accept reject alpha (tapeAlpha++(head rest')) transitions
 											 | e == "rwRt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e,(head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),((tail rest') !! 2 !! 0)))])
 											 | e == "rRl" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,tail rest' !! 0 !! 0,(head rest' !! 0)))])
 											 | e == "rRt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),(tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0)))])
@@ -374,9 +385,11 @@ parseLines' (((e:es):rest'):rest) states start accept reject alpha tapeAlpha tra
 											 | e == "rLl" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,tail rest' !! 0 !! 0,(head rest' !! 0)))])
 											 | e == "rLt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),(tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0)))])
 											 | es == [] = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions
-											 | e == "" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions
-											 -- otherwise = error "WHAAAAAAT"    
-											 |otherwise = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions    --throw an error on this line???
+											 | otherwise = error "Who goes there? You's bad input, git on outa here!!"
+											 --e == "" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions
+											 --otherwise = error $ e ++ "\n" ++ (show es) ++ "\n" ++ (show rest') ++ "\n" ++ (show rest)											 
+											 --otherwise = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions    --throw an error on this line???
+											 
 
 --TODO: 1. Potential issue my code doesn't catch when the transition name is not one of the 6 defined types (rLl, etc)
 --it just passes over it
