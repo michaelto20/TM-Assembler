@@ -309,27 +309,53 @@ main = do
 
 --Parsing Input File
 ------------------------------------------------------------
---TODO: Find a way to check if file is empty and return error
--- to user
+
+
+count :: [[String]] -> Int
+count [] = 0
+count (x:xs) = length x + count xs
+
+--Check the number of starts states
+checkingStart :: [[[String]]] -> Bool
+checkingStart myData = do
+	let startStates = [xs | (x:xs) <- myData, y <- x, y == "start"]
+	1 == (map (\x -> count x) startStates) !! 0
+	
+checkingAccept :: [[[String]]] -> Bool
+checkingAccept myData = do
+	let acceptStates = [xs | (x:xs) <- myData, y <- x, y == "accept"]
+	1 == (map (\x -> count x) acceptStates) !! 0
+	
+--Check the number of reject states
+checkingReject :: [[[String]]] -> Bool
+checkingReject myData = do
+	let rejectStates = 	[xs | (x:xs) <- myData, y <- x, y == "reject"]
+	1 == (map (\x -> count x) rejectStates) !! 0
+	
 
 parseFile :: Handle -> String -> IO ()
 parseFile fileHandle testWord = 
 	do fileContents <- hGetContents fileHandle
 	   let fileLine = lines fileContents
 	   let fileWords = map words fileLine
-	   let fileItems = map (map (split (dropBlanks . dropDelims $ oneOf  "{},:;"))) fileWords
-	   let verifyNumOfItems = map (map (split (dropBlanks $ oneOf "{},:;"))) fileWords 				--Trying to use this solve TODO #2
+	   let fileItems = map (map (splitOneOf  "{},:;")) fileWords
 	   
 	   --Delete empty strings in fileItems
 	   let scrubbedData = elimEmpty fileItems
-	   --let scrubbedNumOfItems' = elimEmpty verifyNumOfItems
 	   
-	   --print verifyNumOfItems
 	   
 	   --Parse data and put into TM record
 	   let parsedData = parseLines scrubbedData
 	   
+	   --Verify that there are the correct number of items for each data types
+	   let checkStart = checkingStart scrubbedData
+	   let checkAccept = checkingAccept scrubbedData
+	   let checkReject = checkingReject scrubbedData
+	   
+	      
+	   
 	   --Get elements of TM
+	   --x <- parsedData
 	   let lsStates = listStates parsedData				--get states
 	   let sStart = stringStart parsedData				--get start
 	   let sAccept = stringAccept parsedData			--get accept
@@ -337,6 +363,7 @@ parseFile fileHandle testWord =
 	   let lsAlpha = listAlpha parsedData				--get alpha
 	   let lsTapeAlpha = listTapeAlpha parsedData		--get tape-alpha
 	   let lsTransitions = listTransitions parsedData	--get transitions
+	   
 	   
 	   
 	   
@@ -351,7 +378,7 @@ parseFile fileHandle testWord =
 	   let transBool = (verifyTrans transConstants lsTapeAlpha lsStates lsTransitions)
 	   
 	   --Data is verified, now run TM on word
-	   if(transBool && verifStart && verifAccept && verifAlpha && verifReject)
+	   if(transBool && verifStart && verifAccept && verifAlpha && verifReject && checkStart && checkAccept && checkReject)
 			then  mapM_  print (runTM lsTransitions sStart sAccept sReject (testWord ++ "_") 0)
 			else runError transBool
 			
@@ -371,44 +398,30 @@ parseLines' :: [[[String]]] -> [String] -> String -> String -> String -> [String
 parseLines' [] states start accept reject alpha tapeAlpha transitions = TM states start accept reject alpha tapeAlpha transitions
 parseLines' ([]:rest) states start accept reject alpha tapeAlpha transitions = parseLines' rest states start accept reject alpha tapeAlpha transitions                 		-- Empty line
 parseLines' (([]:rest'):rest) states start accept reject alpha tapeAlpha transitions = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions 
-parseLines' (((e:es):rest'):rest) states start accept reject alpha tapeAlpha transitions | e == "--" = parseLines' (rest':rest)  states start accept reject alpha tapeAlpha transitions
-                                                                                         | e == "states" = parseLines' (rest) (head rest') start accept reject alpha tapeAlpha transitions
-											 | e == "start" = parseLines' (rest':rest) states (head(head rest')) accept reject alpha tapeAlpha transitions
-											 | e == "accept" = parseLines' (rest':rest) states start (head(head rest')) reject alpha tapeAlpha transitions
-											 | e == "reject" = parseLines' (rest':rest) states start accept (head(head rest')) alpha tapeAlpha transitions
+parseLines' (((e:es):rest'):rest) states start accept reject alpha tapeAlpha transitions | e == "--" = parseLines' (rest)  states start accept reject alpha tapeAlpha transitions
+																						 | e == "states" = parseLines' (rest) (head rest') start accept reject alpha tapeAlpha transitions
+											 | e == "start" = parseLines' (rest) states (head(head rest')) accept reject alpha tapeAlpha transitions
+											 | e == "accept" = parseLines' (rest) states start (head(head rest')) reject alpha tapeAlpha transitions
+											 | e == "reject" = parseLines' (rest) states start accept (head(head rest')) alpha tapeAlpha transitions
 											 | e == "alpha" = parseLines' (rest) states start accept reject (head rest') tapeAlpha transitions
 											 | e == "tape-alpha" = parseLines' (rest) states start accept reject alpha (tapeAlpha++(head rest')) transitions
-											 | e == "rwRt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e,(head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),((tail rest') !! 2 !! 0)))])
-											 | e == "rRl" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,tail rest' !! 0 !! 0,(head rest' !! 0)))])
-											 | e == "rRt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),(tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0)))])
-											 | e == "rwLt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e,(head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),((tail rest') !! 2 !! 0)))])
-											 | e == "rLl" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,tail rest' !! 0 !! 0,(head rest' !! 0)))])
-											 | e == "rLt" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),(tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0)))])
-											 | es == [] = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions
+											 | e == "rwRt" = parseLines' (rest) states start accept reject alpha tapeAlpha (transitions ++ [((e,(head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),((tail rest') !! 2 !! 0)))])
+											 | e == "rRl" = parseLines' (rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,tail rest' !! 0 !! 0,(head rest' !! 0)))])
+											 | e == "rRt" = parseLines' (rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),(tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0)))])
+											 | e == "rwLt" = parseLines' (rest) states start accept reject alpha tapeAlpha (transitions ++ [((e,(head rest' !! 0)), ((tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0),((tail rest') !! 2 !! 0)))])
+											 | e == "rLl" = parseLines' (rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), (tail rest' !! 0 !! 0,tail rest' !! 0 !! 0,(head rest' !! 0)))])
+											 | e == "rLt" = parseLines' (rest) states start accept reject alpha tapeAlpha (transitions ++ [((e, (head rest' !! 0)), ((tail rest' !! 0 !! 0),(tail rest' !! 0 !! 0),((tail rest') !! 1 !! 0)))])
 											 | otherwise = error "Who goes there? You's bad input, git on outa here!!"
-											 --e == "" = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions
-											 --otherwise = error $ e ++ "\n" ++ (show es) ++ "\n" ++ (show rest') ++ "\n" ++ (show rest)											 
-											 --otherwise = parseLines' (rest':rest) states start accept reject alpha tapeAlpha transitions    --throw an error on this line???
 											 
 
---TODO: 1. Potential issue my code doesn't catch when the transition name is not one of the 6 defined types (rLl, etc)
---it just passes over it
---TODO: 2. Code doesn't catch the error where the file may have extra data after a transition
+--TODO: Code doesn't catch the error where the file may have extra data after a transition
 --the code ignores it, should it reject such a file (example: rwLt Q4 1 x Q5 9)?
---TODO: Get rid of empty lines in input file
 											 
 parseLines :: [[[String]]] -> TM
 parseLines f = parseLines' f [] "" "" "" [] ["_"] [] 
 
 --End parsing file
 ---------------------------------------------------------------
-
-									
---c:\Users\Asus\Desktop\project2Test.txt
---Empty File:
---C:\Users\Asus\Desktop\NewTextDocument(2).txt
-
-
 
 
 
