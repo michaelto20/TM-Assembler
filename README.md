@@ -5,14 +5,6 @@ This was a school project for my Theory of Computation class.  We were allowed t
 
 There is a source file called "handout" that contains the original assignment.  As a quick recap, I had to program a Turning Machine that could take in a configuration file.  In the file were the instructions for an assembly language that the Turing Machine would run on as well as an algorithm to run.  The user would input a word and the Turing Machine would run the algorithm on the word and output a trace and whether the word was accepted or not by the algorithm.  
 
-### How do I get set up? ###
-
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
 
 ### How To Get Started ###
 
